@@ -1,0 +1,18 @@
+receivers:
+    examplereceiver:
+
+processors:
+  exampleprocessor:
+
+exporters:
+  lightstep:
+  lightstep/customname:
+    access_token: "access-token"
+    satellite_url: "https://satellites:80"
+
+service:
+  pipelines:
+    traces:
+      receivers: [examplereceiver]
+      processors: [exampleprocessor]
+      exporters: [lightstep]
