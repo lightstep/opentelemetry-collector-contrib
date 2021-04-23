@@ -74,6 +74,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/wavefrontreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsperfcountersreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zookeeperreceiver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/segmentreceiver"
 )
 
 func components() (component.Factories, error) {
@@ -119,6 +120,7 @@ func components() (component.Factories, error) {
 		wavefrontreceiver.NewFactory(),
 		windowsperfcountersreceiver.NewFactory(),
 		zookeeperreceiver.NewFactory(),
+		segmentreceiver.NewFactory(),
 	}
 
 	receivers = append(receivers, extraReceivers()...)
