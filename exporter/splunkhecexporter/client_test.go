@@ -14,6 +14,7 @@
 package splunkhecexporter
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -43,28 +44,24 @@ func createMetricsData(numberOfDataPoints int) pdata.Metrics {
 
 	doubleVal := 1234.5678
 	metrics := pdata.NewMetrics()
-	rm := pdata.NewResourceMetrics()
+	rm := metrics.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().InsertString("k0", "v0")
 	rm.Resource().Attributes().InsertString("k1", "v1")
-	metrics.ResourceMetrics().Append(rm)
 
 	for i := 0; i < numberOfDataPoints; i++ {
 		tsUnix := time.Unix(int64(i), int64(i)*time.Millisecond.Nanoseconds())
 
-		ilm := pdata.NewInstrumentationLibraryMetrics()
-		metric := pdata.NewMetric()
+		ilm := rm.InstrumentationLibraryMetrics().AppendEmpty()
+		metric := ilm.Metrics().AppendEmpty()
 		metric.SetName("gauge_double_with_dims")
 		metric.SetDataType(pdata.MetricDataTypeDoubleGauge)
-		doublePt := pdata.NewDoubleDataPoint()
+		doublePt := metric.DoubleGauge().DataPoints().AppendEmpty()
 		doublePt.SetTimestamp(pdata.TimestampFromTime(tsUnix))
 		doublePt.SetValue(doubleVal)
 		doublePt.LabelsMap().Insert("k/n0", "vn0")
 		doublePt.LabelsMap().Insert("k/n1", "vn1")
 		doublePt.LabelsMap().Insert("k/r0", "vr0")
 		doublePt.LabelsMap().Insert("k/r1", "vr1")
-		metric.DoubleGauge().DataPoints().Append(doublePt)
-		ilm.Metrics().Append(metric)
-		rm.InstrumentationLibraryMetrics().Append(ilm)
 	}
 
 	return metrics
@@ -72,17 +69,15 @@ func createMetricsData(numberOfDataPoints int) pdata.Metrics {
 
 func createTraceData(numberOfTraces int) pdata.Traces {
 	traces := pdata.NewTraces()
-	traces.ResourceSpans().Resize(1)
-	rs := traces.ResourceSpans().At(0)
+	rs := traces.ResourceSpans().AppendEmpty()
 	rs.Resource().Attributes().InsertString("resource", "R1")
-	rs.InstrumentationLibrarySpans().Resize(1)
-	ils := rs.InstrumentationLibrarySpans().At(0)
+	ils := rs.InstrumentationLibrarySpans().AppendEmpty()
 	ils.Spans().Resize(numberOfTraces)
 	for i := 0; i < numberOfTraces; i++ {
 		span := ils.Spans().At(i)
 		span.SetName("root")
-		span.SetStartTime(pdata.Timestamp((i + 1) * 1e9))
-		span.SetEndTime(pdata.Timestamp((i + 2) * 1e9))
+		span.SetStartTimestamp(pdata.Timestamp((i + 1) * 1e9))
+		span.SetEndTimestamp(pdata.Timestamp((i + 2) * 1e9))
 		span.SetTraceID(pdata.NewTraceID([16]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
 		span.SetSpanID(pdata.NewSpanID([8]byte{0, 0, 0, 0, 0, 0, 0, 1}))
 		span.SetTraceState("foo")
@@ -90,7 +85,6 @@ func createTraceData(numberOfTraces int) pdata.Traces {
 			span.SetParentSpanID(pdata.NewSpanID([8]byte{1, 2, 3, 4, 5, 6, 7, 8}))
 			span.Status().SetCode(pdata.StatusCodeOk)
 			span.Status().SetMessage("ok")
-
 		}
 	}
 
@@ -100,15 +94,15 @@ func createTraceData(numberOfTraces int) pdata.Traces {
 func createLogData(numResources int, numLibraries int, numRecords int) pdata.Logs {
 	logs := pdata.NewLogs()
 	logs.ResourceLogs().Resize(numResources)
-
 	for i := 0; i < numResources; i++ {
 		rl := logs.ResourceLogs().At(i)
 		rl.InstrumentationLibraryLogs().Resize(numLibraries)
 		for j := 0; j < numLibraries; j++ {
 			ill := rl.InstrumentationLibraryLogs().At(j)
+			ill.Logs().Resize(numRecords)
 			for k := 0; k < numRecords; k++ {
 				ts := pdata.Timestamp(int64(k) * time.Millisecond.Nanoseconds())
-				logRecord := pdata.NewLogRecord()
+				logRecord := ill.Logs().At(k)
 				logRecord.SetName(fmt.Sprintf("%d_%d_%d", i, j, k))
 				logRecord.Body().SetStringVal("mylog")
 				logRecord.Attributes().InsertString(conventions.AttributeServiceName, "myapp")
@@ -117,8 +111,6 @@ func createLogData(numResources int, numLibraries int, numRecords int) pdata.Log
 				logRecord.Attributes().InsertString(conventions.AttributeHostName, "myhost")
 				logRecord.Attributes().InsertString("custom", "custom")
 				logRecord.SetTimestamp(ts)
-
-				ill.Logs().Append(logRecord)
 			}
 		}
 	}
@@ -128,7 +120,7 @@ func createLogData(numResources int, numLibraries int, numRecords int) pdata.Log
 
 type CapturingData struct {
 	testing          *testing.T
-	receivedRequest  chan string
+	receivedRequest  chan []byte
 	statusCode       int
 	checkCompression bool
 }
@@ -146,7 +138,7 @@ func (c *CapturingData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	go func() {
-		c.receivedRequest <- string(body)
+		c.receivedRequest <- body
 	}()
 	w.WriteHeader(c.statusCode)
 }
@@ -163,7 +155,7 @@ func runMetricsExport(disableCompression bool, numberOfDataPoints int, t *testin
 	cfg.DisableCompression = disableCompression
 	cfg.Token = "1234-1234"
 
-	receivedRequest := make(chan string)
+	receivedRequest := make(chan []byte)
 	capture := CapturingData{testing: t, receivedRequest: receivedRequest, statusCode: 200, checkCompression: !cfg.DisableCompression}
 	s := &http.Server{
 		Handler: &capture,
@@ -184,7 +176,7 @@ func runMetricsExport(disableCompression bool, numberOfDataPoints int, t *testin
 	assert.NoError(t, err)
 	select {
 	case request := <-receivedRequest:
-		return request, nil
+		return string(request), nil
 	case <-time.After(1 * time.Second):
 		return "", errors.New("timeout")
 	}
@@ -202,7 +194,7 @@ func runTraceExport(disableCompression bool, numberOfTraces int, t *testing.T) (
 	cfg.DisableCompression = disableCompression
 	cfg.Token = "1234-1234"
 
-	receivedRequest := make(chan string)
+	receivedRequest := make(chan []byte)
 	capture := CapturingData{testing: t, receivedRequest: receivedRequest, statusCode: 200, checkCompression: !cfg.DisableCompression}
 	s := &http.Server{
 		Handler: &capture,
@@ -223,13 +215,13 @@ func runTraceExport(disableCompression bool, numberOfTraces int, t *testing.T) (
 	assert.NoError(t, err)
 	select {
 	case request := <-receivedRequest:
-		return request, nil
+		return string(request), nil
 	case <-time.After(1 * time.Second):
 		return "", errors.New("timeout")
 	}
 }
 
-func runLogExport(cfg *Config, ld pdata.Logs, t *testing.T) ([]string, error) {
+func runLogExport(cfg *Config, ld pdata.Logs, t *testing.T) ([][]byte, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
@@ -238,7 +230,7 @@ func runLogExport(cfg *Config, ld pdata.Logs, t *testing.T) ([]string, error) {
 	cfg.Endpoint = "http://" + listener.Addr().String() + "/services/collector"
 	cfg.Token = "1234-1234"
 
-	receivedRequest := make(chan string)
+	receivedRequest := make(chan []byte)
 	capture := CapturingData{testing: t, receivedRequest: receivedRequest, statusCode: 200, checkCompression: !cfg.DisableCompression}
 	s := &http.Server{
 		Handler: &capture,
@@ -256,7 +248,7 @@ func runLogExport(cfg *Config, ld pdata.Logs, t *testing.T) ([]string, error) {
 	err = exporter.ConsumeLogs(context.Background(), ld)
 	assert.NoError(t, err)
 
-	var requests []string
+	var requests [][]byte
 	for {
 		select {
 		case request := <-receivedRequest:
@@ -286,7 +278,12 @@ func TestReceiveLogs(t *testing.T) {
 	type wantType struct {
 		batches    []string
 		numBatches int
+		compressed bool
 	}
+
+	// The test cases depend on the constant minCompressionLen = 1500.
+	// If the constant changed, the test cases with want.compressed=true must be updated.
+	require.Equal(t, minCompressionLen, 1500)
 
 	tests := []struct {
 		name string
@@ -304,10 +301,10 @@ func TestReceiveLogs(t *testing.T) {
 			}(),
 			want: wantType{
 				batches: []string{
-					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n" +
-						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n" +
-						`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n" +
-						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_0","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_1","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_2","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_3","service.name":"myapp"}}` + "\n\r\n\r\n",
 				},
 				numBatches: 1,
 			},
@@ -322,10 +319,10 @@ func TestReceiveLogs(t *testing.T) {
 			}(),
 			want: wantType{
 				batches: []string{
-					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
-					`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
-					`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
-					`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_0","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_1","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_2","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_3","service.name":"myapp"}}` + "\n\r\n\r\n",
 				},
 				numBatches: 4,
 			},
@@ -335,17 +332,73 @@ func TestReceiveLogs(t *testing.T) {
 			logs: createLogData(1, 1, 4),
 			conf: func() *Config {
 				cfg := NewFactory().CreateDefaultConfig().(*Config)
-				cfg.MaxContentLengthLogs = 400
+				cfg.MaxContentLengthLogs = 448
 				return cfg
 			}(),
 			want: wantType{
 				batches: []string{
-					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n" +
-						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
-					`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n" +
-						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_0","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_1","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_2","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_3","service.name":"myapp"}}` + "\n\r\n\r\n",
 				},
 				numBatches: 2,
+			},
+		},
+		{
+			name: "1 compressed batch of 1837 bytes, make sure the event size is more than minCompressionLen=1500 to trigger compression",
+			logs: createLogData(1, 1, 10),
+			conf: func() *Config {
+				return NewFactory().CreateDefaultConfig().(*Config)
+			}(),
+			want: wantType{
+				batches: []string{
+					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_0","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_1","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_2","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_3","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.004,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_4","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.005,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_5","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.006,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_6","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.007,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_7","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.008,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_8","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.009,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_9","service.name":"myapp"}}` + "\n\r\n\r\n",
+				},
+				numBatches: 1,
+				compressed: true,
+			},
+		},
+		{
+			name: "2 compressed batches - 1916 bytes each, make sure the log size is more than minCompressionLen=1500 to trigger compression",
+			logs: createLogData(1, 1, 18), // comes to HEC events payload size - 1837 bytes
+			conf: func() *Config {
+				cfg := NewFactory().CreateDefaultConfig().(*Config)
+				cfg.MaxContentLengthLogs = 1916
+				return cfg
+			}(),
+			want: wantType{
+				batches: []string{
+					`{"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_0","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.001,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_1","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.002,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_2","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.003,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_3","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.004,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_4","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.005,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_5","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.006,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_6","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.007,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_7","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.008,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_8","service.name":"myapp"}}` + "\n\r\n\r\n",
+					`{"time":0.009,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_9","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.01,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_10","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.011,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_11","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.012,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_12","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.013,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_13","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.014,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_14","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.015,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_15","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.016,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_16","service.name":"myapp"}}` + "\n\r\n\r\n" +
+						`{"time":0.017,"host":"myhost","source":"myapp","sourcetype":"myapp-type","index":"myindex","event":"mylog","fields":{"custom":"custom","host.name":"myhost","otlp.log.name":"0_0_17","service.name":"myapp"}}` + "\n\r\n\r\n",
+				},
+				numBatches: 2,
+				compressed: true,
 			},
 		},
 	}
@@ -359,7 +412,11 @@ func TestReceiveLogs(t *testing.T) {
 
 			for i := 0; i < test.want.numBatches; i++ {
 				require.NotZero(t, got[i])
-				assert.Equal(t, test.want.batches[i], got[i])
+				if test.want.compressed {
+					validateCompressedEqual(t, test.want.batches[i], got[i])
+				} else {
+					assert.Equal(t, test.want.batches[i], string(got[i]))
+				}
 
 			}
 		})
@@ -391,7 +448,7 @@ func TestReceiveMetricsWithCompression(t *testing.T) {
 }
 
 func TestErrorReceived(t *testing.T) {
-	receivedRequest := make(chan string)
+	receivedRequest := make(chan []byte)
 	capture := CapturingData{receivedRequest: receivedRequest, statusCode: 500}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -552,8 +609,7 @@ func Test_pushLogData_nil_Logs(t *testing.T) {
 			},
 			logs: func() pdata.Logs {
 				logs := pdata.NewLogs()
-				logs.ResourceLogs().Resize(1)
-				logs.ResourceLogs().At(0).InstrumentationLibraryLogs()
+				logs.ResourceLogs().AppendEmpty()
 				return logs
 			}(),
 			requires: func(t *testing.T, logs pdata.Logs) {
@@ -567,8 +623,7 @@ func Test_pushLogData_nil_Logs(t *testing.T) {
 			},
 			logs: func() pdata.Logs {
 				logs := pdata.NewLogs()
-				logs.ResourceLogs().Resize(1)
-				logs.ResourceLogs().At(0).InstrumentationLibraryLogs().Resize(1)
+				logs.ResourceLogs().AppendEmpty().InstrumentationLibraryLogs().AppendEmpty()
 				return logs
 			}(),
 			requires: func(t *testing.T, logs pdata.Logs) {
@@ -607,13 +662,9 @@ func Test_pushLogData_InvalidLog(t *testing.T) {
 	}
 
 	logs := pdata.NewLogs()
-	logs.ResourceLogs().Resize(1)
-	logs.ResourceLogs().At(0).InstrumentationLibraryLogs().Resize(1)
-
-	log := pdata.NewLogRecord()
+	log := logs.ResourceLogs().AppendEmpty().InstrumentationLibraryLogs().AppendEmpty().Logs().AppendEmpty()
 	// Invalid log value
 	log.Body().SetDoubleVal(math.Inf(1))
-	logs.ResourceLogs().At(0).InstrumentationLibraryLogs().At(0).Logs().Append(log)
 
 	err := c.pushLogData(context.Background(), logs)
 
@@ -719,4 +770,16 @@ func TestSubLogs(t *testing.T) {
 
 	// The name of the sole log record should be 1_1_2.
 	assert.Equal(t, "1_1_2", got.ResourceLogs().At(0).InstrumentationLibraryLogs().At(0).Logs().At(0).Name())
+}
+
+// validateCompressedEqual validates that GZipped `got` contains `expected` string
+func validateCompressedEqual(t *testing.T, expected string, got []byte) {
+	z, err := gzip.NewReader(bytes.NewReader(got))
+	require.NoError(t, err)
+	defer z.Close()
+
+	p, err := ioutil.ReadAll(z)
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, string(p))
 }

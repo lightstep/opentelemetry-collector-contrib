@@ -22,7 +22,7 @@ import (
 
 // Config defines configuration for k8s attributes processor.
 type Config struct {
-	config.ProcessorSettings `mapstructure:",squash"`
+	*config.ProcessorSettings `mapstructure:"-"`
 
 	k8sconfig.APIConfig `mapstructure:",squash"`
 
@@ -43,6 +43,10 @@ type Config struct {
 	// Association section allows to define rules for tagging spans, metrics,
 	// and logs with Pod metadata.
 	Association []PodAssociationConfig `mapstructure:"pod_association"`
+}
+
+func (cfg *Config) Validate() error {
+	return cfg.APIConfig.Validate()
 }
 
 // ExtractConfig section allows specifying extraction rules to extract

@@ -29,23 +29,20 @@ func NewFactory() component.ExporterFactory {
 	return exporterhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		exporterhelper.WithTraces(createTraceExporter))
+		exporterhelper.WithTraces(createTracesExporter))
 }
 
 func createDefaultConfig() config.Exporter {
 	return &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		Region:      "",
-		TracesToken: "",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		Region:           "",
+		TracesToken:      "",
 	}
 }
 
-func createTraceExporter(_ context.Context, params component.ExporterCreateParams, cfg config.Exporter) (component.TracesExporter, error) {
+func createTracesExporter(_ context.Context, params component.ExporterCreateParams, cfg config.Exporter) (component.TracesExporter, error) {
 	config := cfg.(*Config)
-	return newLogzioTraceExporter(config, params)
+	return newLogzioTracesExporter(config, params)
 }
 
 func createMetricsExporter(_ context.Context, params component.ExporterCreateParams, cfg config.Exporter) (component.MetricsExporter, error) {

@@ -24,15 +24,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestTraceExporterGetsCreatedWithValidConfiguration(t *testing.T) {
+func TestTracesExporterGetsCreatedWithValidConfiguration(t *testing.T) {
 	// prepare
 	factory := NewFactory()
 	creationParams := component.ExporterCreateParams{Logger: zap.NewNop()}
 	cfg := &Config{
-		ExporterSettings: config.ExporterSettings{
-			NameVal: "loadbalancing",
-			TypeVal: "loadbalancing",
-		},
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		Resolver: ResolverSettings{
 			Static: &StaticResolver{Hostnames: []string{"endpoint-1"}},
 		},
@@ -51,10 +48,7 @@ func TestLogExporterGetsCreatedWithValidConfiguration(t *testing.T) {
 	factory := NewFactory()
 	creationParams := component.ExporterCreateParams{Logger: zap.NewNop()}
 	cfg := &Config{
-		ExporterSettings: config.ExporterSettings{
-			NameVal: "loadbalancing",
-			TypeVal: "loadbalancing",
-		},
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		Resolver: ResolverSettings{
 			Static: &StaticResolver{Hostnames: []string{"endpoint-1"}},
 		},

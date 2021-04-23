@@ -39,7 +39,7 @@ func NewFactory() component.ProcessorFactory {
 	return processorhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		processorhelper.WithTraces(createTraceProcessor),
+		processorhelper.WithTraces(createTracesProcessor),
 		processorhelper.WithMetrics(createMetricsProcessor),
 		processorhelper.WithLogs(createLogsProcessor),
 	)
@@ -47,21 +47,18 @@ func NewFactory() component.ProcessorFactory {
 
 func createDefaultConfig() config.Processor {
 	return &Config{
-		ProcessorSettings: config.ProcessorSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		APIConfig: k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeServiceAccount},
+		ProcessorSettings: config.NewProcessorSettings(typeStr),
+		APIConfig:         k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeServiceAccount},
 	}
 }
 
-func createTraceProcessor(
+func createTracesProcessor(
 	ctx context.Context,
 	params component.ProcessorCreateParams,
 	cfg config.Processor,
 	next consumer.Traces,
 ) (component.TracesProcessor, error) {
-	return createTraceProcessorWithOptions(ctx, params, cfg, next)
+	return createTracesProcessorWithOptions(ctx, params, cfg, next)
 }
 
 func createLogsProcessor(
@@ -82,7 +79,7 @@ func createMetricsProcessor(
 	return createMetricsProcessorWithOptions(ctx, params, cfg, nextMetricsConsumer)
 }
 
-func createTraceProcessorWithOptions(
+func createTracesProcessorWithOptions(
 	_ context.Context,
 	params component.ProcessorCreateParams,
 	cfg config.Processor,
@@ -94,7 +91,7 @@ func createTraceProcessorWithOptions(
 		return nil, err
 	}
 
-	return processorhelper.NewTraceProcessor(
+	return processorhelper.NewTracesProcessor(
 		cfg,
 		next,
 		kp,

@@ -17,6 +17,9 @@ package stanza
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/open-telemetry/opentelemetry-log-collection/entry"
 	"github.com/open-telemetry/opentelemetry-log-collection/operator"
@@ -61,7 +64,7 @@ func (c *UnstartableConfig) Build(context operator.BuildContext) ([]operator.Ope
 }
 
 // Start will return an error
-func (o *UnstartableOperator) Start() error {
+func (o *UnstartableOperator) Start(_ operator.Persister) error {
 	return fmt.Errorf("something very unusual happened")
 }
 
@@ -71,21 +74,31 @@ func (o *UnstartableOperator) Process(ctx context.Context, entry *entry.Entry) e
 }
 
 type mockLogsConsumer struct {
-	received int
+	received int32
 }
 
 func (m *mockLogsConsumer) ConsumeLogs(ctx context.Context, ld pdata.Logs) error {
-	m.received++
+	atomic.AddInt32(&m.received, 1)
 	return nil
 }
 
+func (m *mockLogsConsumer) Received() int {
+	ret := atomic.LoadInt32(&m.received)
+	return int(ret)
+}
+
 type mockLogsRejecter struct {
-	rejected int
+	rejected int32
 }
 
 func (m *mockLogsRejecter) ConsumeLogs(ctx context.Context, ld pdata.Logs) error {
-	m.rejected++
+	atomic.AddInt32(&m.rejected, 1)
 	return fmt.Errorf("no")
+}
+
+func (m *mockLogsRejecter) Rejected() int {
+	ret := atomic.LoadInt32(&m.rejected)
+	return int(ret)
 }
 
 const testType = "test"
@@ -108,6 +121,10 @@ func (f TestReceiverType) CreateDefaultConfig() config.Receiver {
 				NameVal: testType,
 			},
 			Operators: OperatorConfigs{},
+			Converter: ConverterConfig{
+				MaxFlushCount: 1,
+				FlushInterval: 100 * time.Millisecond,
+			},
 		},
 		Input: InputConfig{},
 	}
@@ -130,4 +147,41 @@ func (f TestReceiverType) DecodeInputConfig(cfg config.Receiver) (*operator.Conf
 		return nil, fmt.Errorf("Unknown input type")
 	}
 	return &operator.Config{Builder: NewUnstartableConfig()}, nil
+}
+
+func newMockPersister() *persister {
+	return &persister{
+		client: newMockClient(),
+	}
+}
+
+type mockClient struct {
+	cache    map[string][]byte
+	cacheMux sync.Mutex
+}
+
+func newMockClient() *mockClient {
+	return &mockClient{
+		cache: make(map[string][]byte),
+	}
+}
+
+func (p *mockClient) Get(_ context.Context, key string) ([]byte, error) {
+	p.cacheMux.Lock()
+	defer p.cacheMux.Unlock()
+	return p.cache[key], nil
+}
+
+func (p *mockClient) Set(_ context.Context, key string, value []byte) error {
+	p.cacheMux.Lock()
+	defer p.cacheMux.Unlock()
+	p.cache[key] = value
+	return nil
+}
+
+func (p *mockClient) Delete(_ context.Context, key string) error {
+	p.cacheMux.Lock()
+	defer p.cacheMux.Unlock()
+	delete(p.cache, key)
+	return nil
 }

@@ -40,10 +40,7 @@ func TestMetricsTransformProcessor(t *testing.T) {
 
 			mtp, err := processorhelper.NewMetricsProcessor(
 				&Config{
-					ProcessorSettings: config.ProcessorSettings{
-						TypeVal: typeStr,
-						NameVal: typeStr,
-					},
+					ProcessorSettings: config.NewProcessorSettings(typeStr),
 				},
 				next,
 				p,
@@ -173,7 +170,7 @@ func BenchmarkMetricsTransformProcessorRenameMetrics(b *testing.B) {
 	md := internaldata.MetricsData{Metrics: in}
 
 	p := newMetricsTransformProcessor(nil, transforms)
-	mtp, _ := processorhelper.NewMetricsProcessor(&Config{}, consumertest.NewMetricsNop(), p)
+	mtp, _ := processorhelper.NewMetricsProcessor(&Config{}, consumertest.NewNop(), p)
 
 	b.ResetTimer()
 

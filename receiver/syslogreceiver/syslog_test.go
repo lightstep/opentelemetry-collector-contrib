@@ -52,7 +52,7 @@ func testSyslog(t *testing.T, cfg *SysLogConfig) {
 	sink := new(consumertest.LogsSink)
 	rcvr, err := f.CreateLogsReceiver(context.Background(), params, cfg, sink)
 	require.NoError(t, err)
-	require.NoError(t, rcvr.Start(context.Background(), &testHost{t: t}))
+	require.NoError(t, rcvr.Start(context.Background(), componenttest.NewNopHost()))
 
 	var conn net.Conn
 	if cfg.Input["tcp"] != nil {
@@ -68,13 +68,17 @@ func testSyslog(t *testing.T, cfg *SysLogConfig) {
 		_, err = conn.Write([]byte(msg))
 		require.NoError(t, err)
 	}
-	conn.Close()
+	require.NoError(t, conn.Close())
 
 	require.Eventually(t, expectNLogs(sink, numLogs), 2*time.Second, time.Millisecond)
 	require.NoError(t, rcvr.Shutdown(context.Background()))
+	require.Len(t, sink.AllLogs(), 1)
+
+	resourceLogs := sink.AllLogs()[0].ResourceLogs().At(0)
+	logs := resourceLogs.InstrumentationLibraryLogs().At(0).Logs()
+
 	for i := 0; i < numLogs; i++ {
-		logs := sink.AllLogs()[i]
-		log := logs.ResourceLogs().At(0).InstrumentationLibraryLogs().At(0).Logs().At(0)
+		log := logs.At(i)
 
 		require.Equal(t, log.Timestamp(), pdata.Timestamp(1614470402003000000+i*60*1000*1000*1000))
 		msg, ok := log.Body().MapVal().Get("message")
@@ -107,6 +111,9 @@ func testdataConfigYamlAsMap() *SysLogConfig {
 				NameVal: "syslog",
 			},
 			Operators: stanza.OperatorConfigs{},
+			Converter: stanza.ConverterConfig{
+				FlushInterval: 100 * time.Millisecond,
+			},
 		},
 		Input: stanza.InputConfig{
 			"tcp": map[string]interface{}{
@@ -125,6 +132,9 @@ func testdataUDPConfig() *SysLogConfig {
 				NameVal: "syslog",
 			},
 			Operators: stanza.OperatorConfigs{},
+			Converter: stanza.ConverterConfig{
+				FlushInterval: 100 * time.Millisecond,
+			},
 		},
 		Input: stanza.InputConfig{
 			"udp": map[string]interface{}{
@@ -165,16 +175,4 @@ func expectNLogs(sink *consumertest.LogsSink, expected int) func() bool {
 	return func() bool {
 		return sink.LogRecordsCount() == expected
 	}
-}
-
-type testHost struct {
-	component.Host
-	t *testing.T
-}
-
-var _ component.Host = (*testHost)(nil)
-
-// ReportFatalError causes the test to be run to fail.
-func (h *testHost) ReportFatalError(err error) {
-	h.t.Fatalf("receiver reported a fatal error: %v", err)
 }

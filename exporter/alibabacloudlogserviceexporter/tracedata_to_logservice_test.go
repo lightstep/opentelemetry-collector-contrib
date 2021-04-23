@@ -123,18 +123,16 @@ func fillHTTPClientSpan(span pdata.Span) {
 	span.SetParentSpanID(newSegmentID())
 	span.SetName("/users/junit")
 	span.SetKind(pdata.SpanKindCLIENT)
-	span.SetStartTime(pdata.TimestampFromTime(startTime))
-	span.SetEndTime(pdata.TimestampFromTime(endTime))
+	span.SetStartTimestamp(pdata.TimestampFromTime(startTime))
+	span.SetEndTimestamp(pdata.TimestampFromTime(endTime))
 	span.SetTraceState("x:y")
 
-	span.Events().Resize(1)
-	event := span.Events().At(0)
+	event := span.Events().AppendEmpty()
 	event.SetName("event")
 	event.SetTimestamp(1024)
 	event.Attributes().InsertString("key", "value")
 
-	span.Links().Resize(1)
-	link := span.Links().At(0)
+	link := span.Links().AppendEmpty()
 	link.SetTraceState("link:state")
 	link.Attributes().InsertString("link", "true")
 
@@ -158,8 +156,8 @@ func fillHTTPServerSpan(span pdata.Span) {
 	span.SetParentSpanID(newSegmentID())
 	span.SetName("/users/junit")
 	span.SetKind(pdata.SpanKindSERVER)
-	span.SetStartTime(pdata.TimestampFromTime(startTime))
-	span.SetEndTime(pdata.TimestampFromTime(endTime))
+	span.SetStartTimestamp(pdata.TimestampFromTime(startTime))
+	span.SetEndTimestamp(pdata.TimestampFromTime(endTime))
 
 	status := span.Status()
 	status.SetCode(2)

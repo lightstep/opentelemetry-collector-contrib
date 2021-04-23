@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenthelper"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/config/configtest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/consumer/pdata"
@@ -70,7 +71,7 @@ func TestNewTracesExporter(t *testing.T) {
 	}
 }
 
-func TestTraceExporterStart(t *testing.T) {
+func TestTracesExporterStart(t *testing.T) {
 	for _, tt := range []struct {
 		desc string
 		te   *traceExporterImp
@@ -127,7 +128,7 @@ func TestTraceExporterStart(t *testing.T) {
 	}
 }
 
-func TestTraceExporterShutdown(t *testing.T) {
+func TestTracesExporterShutdown(t *testing.T) {
 	// prepare
 	config := simpleConfig()
 	params := component.ExporterCreateParams{
@@ -502,18 +503,13 @@ func simpleTraces() pdata.Traces {
 
 func simpleTraceWithID(id pdata.TraceID) pdata.Traces {
 	traces := pdata.NewTraces()
-	traces.ResourceSpans().Resize(1)
-	rs := traces.ResourceSpans().At(0)
-	rs.InstrumentationLibrarySpans().Resize(1)
-	ils := rs.InstrumentationLibrarySpans().At(0)
-	ils.Spans().Resize(1)
-	ils.Spans().At(0).SetTraceID(id)
-
+	traces.ResourceSpans().AppendEmpty().InstrumentationLibrarySpans().AppendEmpty().Spans().AppendEmpty().SetTraceID(id)
 	return traces
 }
 
 func simpleConfig() *Config {
 	return &Config{
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		Resolver: ResolverSettings{
 			Static: &StaticResolver{Hostnames: []string{"endpoint-1"}},
 		},

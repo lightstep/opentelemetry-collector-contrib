@@ -180,8 +180,8 @@ func TestSpanToSentrySpan(t *testing.T) {
 		testSpan.SetSpanID(spanID)
 		testSpan.SetParentSpanID(parentSpanID)
 		testSpan.SetName(name)
-		testSpan.SetStartTime(startTime)
-		testSpan.SetEndTime(endTime)
+		testSpan.SetStartTimestamp(startTime)
+		testSpan.SetEndTimestamp(endTime)
 		testSpan.SetKind(kind)
 
 		testSpan.Status().SetMessage(statusMessage)
@@ -520,8 +520,7 @@ func TestPushTraceData(t *testing.T) {
 			td: func() pdata.Traces {
 				traces := pdata.NewTraces()
 				resourceSpans := traces.ResourceSpans()
-				resourceSpans.Resize(1)
-				resourceSpans.At(0).InstrumentationLibrarySpans().Resize(1)
+				resourceSpans.AppendEmpty().InstrumentationLibrarySpans().AppendEmpty()
 				return traces
 			}(),
 			called: false,
@@ -531,9 +530,7 @@ func TestPushTraceData(t *testing.T) {
 			td: func() pdata.Traces {
 				traces := pdata.NewTraces()
 				resourceSpans := traces.ResourceSpans()
-				resourceSpans.Resize(1)
-				resourceSpans.At(0).InstrumentationLibrarySpans().Resize(1)
-				resourceSpans.At(0).InstrumentationLibrarySpans().At(0).Spans().Resize(1)
+				resourceSpans.AppendEmpty().InstrumentationLibrarySpans().AppendEmpty().Spans().AppendEmpty()
 				return traces
 			}(),
 			called: true,

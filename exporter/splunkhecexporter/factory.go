@@ -36,17 +36,14 @@ func NewFactory() component.ExporterFactory {
 	return exporterhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		exporterhelper.WithTraces(createTraceExporter),
+		exporterhelper.WithTraces(createTracesExporter),
 		exporterhelper.WithMetrics(createMetricsExporter),
 		exporterhelper.WithLogs(createLogsExporter))
 }
 
 func createDefaultConfig() config.Exporter {
 	return &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		TimeoutSettings: exporterhelper.TimeoutSettings{
 			Timeout: defaultHTTPTimeout,
 		},
@@ -58,7 +55,7 @@ func createDefaultConfig() config.Exporter {
 	}
 }
 
-func createTraceExporter(
+func createTracesExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
 	config config.Exporter,
@@ -73,7 +70,7 @@ func createTraceExporter(
 		return nil, err
 	}
 
-	return exporterhelper.NewTraceExporter(
+	return exporterhelper.NewTracesExporter(
 		expCfg,
 		params.Logger,
 		exp.pushTraceData,

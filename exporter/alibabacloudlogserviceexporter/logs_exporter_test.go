@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/conventions"
 	"go.uber.org/zap"
@@ -36,27 +37,25 @@ func createSimpleLogData(numberOfLogs int) pdata.Logs {
 
 	for i := 0; i < numberOfLogs; i++ {
 		ts := pdata.Timestamp(int64(i) * time.Millisecond.Nanoseconds())
-		logRecord := pdata.NewLogRecord()
+		logRecord := ill.Logs().AppendEmpty()
 		logRecord.Body().SetStringVal("mylog")
 		logRecord.Attributes().InsertString(conventions.AttributeServiceName, "myapp")
 		logRecord.Attributes().InsertString("my-label", "myapp-type")
 		logRecord.Attributes().InsertString(conventions.AttributeHostName, "myhost")
 		logRecord.Attributes().InsertString("custom", "custom")
 		logRecord.SetTimestamp(ts)
-
-		ill.Logs().Append(logRecord)
 	}
-	nilRecord := pdata.NewLogRecord()
-	ill.Logs().Append(nilRecord)
+	ill.Logs().AppendEmpty()
 
 	return logs
 }
 
 func TestNewLogsExporter(t *testing.T) {
 	got, err := newLogsExporter(zap.NewNop(), &Config{
-		Endpoint: "us-west-1.log.aliyuncs.com",
-		Project:  "demo-project",
-		Logstore: "demo-logstore",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		Endpoint:         "us-west-1.log.aliyuncs.com",
+		Project:          "demo-project",
+		Logstore:         "demo-logstore",
 	})
 	assert.NoError(t, err)
 	require.NotNil(t, got)
@@ -69,10 +68,11 @@ func TestNewLogsExporter(t *testing.T) {
 
 func TestSTSTokenExporter(t *testing.T) {
 	got, err := newLogsExporter(zap.NewNop(), &Config{
-		Endpoint:      "us-west-1.log.aliyuncs.com",
-		Project:       "demo-project",
-		Logstore:      "demo-logstore",
-		TokenFilePath: path.Join(".", "testdata", "config.yaml"),
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		Endpoint:         "us-west-1.log.aliyuncs.com",
+		Project:          "demo-project",
+		Logstore:         "demo-logstore",
+		TokenFilePath:    path.Join(".", "testdata", "config.yaml"),
 	})
 	assert.NoError(t, err)
 	require.NotNil(t, got)

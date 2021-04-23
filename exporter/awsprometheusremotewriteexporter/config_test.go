@@ -55,16 +55,11 @@ func TestLoadConfig(t *testing.T) {
 	e1 := cfg.Exporters["awsprometheusremotewrite/2"]
 	cfgComplete := &Config{
 		Config: prw.Config{
-			ExporterSettings: config.ExporterSettings{
+			ExporterSettings: &config.ExporterSettings{
 				NameVal: "awsprometheusremotewrite/2",
 				TypeVal: "awsprometheusremotewrite",
 			},
 			TimeoutSettings: exporterhelper.DefaultTimeoutSettings(),
-			QueueSettings: exporterhelper.QueueSettings{
-				Enabled:      true,
-				NumConsumers: 2,
-				QueueSize:    10,
-			},
 			RetrySettings: exporterhelper.RetrySettings{
 				Enabled:         true,
 				InitialInterval: 10 * time.Second,
@@ -81,12 +76,9 @@ func TestLoadConfig(t *testing.T) {
 					},
 					Insecure: false,
 				},
-				ReadBufferSize: 0,
-
+				ReadBufferSize:  0,
 				WriteBufferSize: 512 * 1024,
-
-				Timeout: 5 * time.Second,
-
+				Timeout:         5 * time.Second,
 				Headers: map[string]string{
 					"prometheus-remote-write-version": "0.1.0",
 					"x-scope-orgid":                   "234"},

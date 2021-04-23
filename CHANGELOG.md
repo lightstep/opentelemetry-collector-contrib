@@ -2,6 +2,107 @@
 
 ## Unreleased
 
+## 🛑 Breaking changes 🛑
+
+- `signalfx` exporter (#3207):
+  - Additional metrics excluded by default by signalfx exporter
+    - system.disk.io_time
+    - system.disk.operation_time
+    - system.disk.weighted_io_time
+    - system.network.connections
+    - system.processes.count
+    - system.processes.created
+
+## v0.25.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.25.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.25.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 🚀 New components 🚀
+
+- `kafkametricsreceiver` new receiver component for collecting metrics about a kafka cluster - primarily lag and offset. [configuration instructions](receiver/kafkametricsreceiver/README.md)
+- `file_storage` extension to read and write data to the local file system (#3087)
+
+## 🛑 Breaking changes 🛑
+
+- `newrelic` exporter (#3091):
+  - Removal of common attributes (use opentelemetry collector resource processor to add attributes)
+  - Drop support for cumulative metrics being sent to New Relic via a collector
+
+## 💡 Enhancements 💡
+
+- Update `opentelemetry-log-collection` to v0.17.0 for log receivers (#3017)
+- `datadog` exporter:
+  - Add `peer.service` priority instead of `service.name` (#2817)
+  - Improve support of semantic conventions for K8s, Azure and ECS (#2623)
+- Improve and batch logs translation for stanza (#2892)
+- `statsd` receiver: Add timing/histogram as OTLP gauge (#2973)
+- `honeycomb` exporter: Add Retry and Queue settings (#2714)
+- `resourcedetection` processor:
+  - Add AKS resource detector (#3035)
+  - Use conventions package constants for ECS detector (#3171)
+- `sumologic` exporter: Add graphite format (#2695)
+- Add trace attributes to the log entry for stanza (#3018)
+- `splunk_hec` exporter: Send log record name as part of the HEC log event (#3119)
+- `newrelic` exporter (#3091):
+  - Add support for logs
+  - Performance improvements
+  - Optimizations to the New Relic payload to reduce payload size
+  - Metrics generated for monitoring the exporter
+  - Insert Key vs License keys are auto-detected in some cases
+  - Collector version information is properly extracted via the application start info parameters
+
+## 🧰 Bug fixes 🧰
+
+- `splunk_hec` exporter: Fix sending log payload with missing the GZIP footer (#3032)
+- `awsxray` exporter: Remove propagation of error on shutdown (#2999)
+- `resourcedetection` processor:
+  - Correctly report DRAGONFLYBSD value (#3100)
+  - Fallback to `os.Hostname` when FQDN is not available (#3099)
+- `httpforwarder` extension: Do not report ErrServerClosed when shutting down the service (#3173)
+- `collectd` receiver: Do not report ErrServerClosed when shutting down the service (#3178)
+
+## v0.24.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.24.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.24.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 🚀 New components 🚀
+
+- `fluentbit` extension and `fluentforward` receiver moved from opentelemetry-collector
+
+## 💡 Enhancements 💡
+
+- Check `NO_WINDOWS_SERVICE` environment variable to force interactive mode on Windows (#2819)
+- `resourcedetection `processor:
+  - Add task revision to ECS resource detector (#2814)
+  - Add GKE detector (#2821)
+  - Add Amazon EKS detector (#2820)
+  - Add `VMScaleSetName` field to Azure detector (#2890)
+- `awsemf` exporter:
+  - Add `parse_json_encoded_attr_values` config option to decode json-encoded strings in attribute values (#2827)
+  - Add `output_destination` config option to support AWS Lambda (#2720)
+- `googlecloud` exporter: Handle `cloud.availability_zone` semantic convention (#2893)
+- `newrelic` exporter: Add `instrumentation.provider` to default attributes (#2900)
+- Set unprivileged user to container image (#2925)
+- `splunkhec` exporter: Add `max_content_length_logs` config option to send log data in payloads less than max content length (#2524)
+- `k8scluster` and `kubeletstats` receiver: Replace package constants in favor of constants from conventions in core (#2996)
+
+## 🧰 Bug fixes 🧰
+
+- `spanmetrics` processor:
+  - Rename `calls` metric to `calls_total` and set `IsMonotonic` to true (#2837)
+  - Validate duplicate dimensions at start (#2844)
+- `awsemf` exporter: Calculate delta instead of rate for cumulative metrics (#2512)
+- `signalfx` exporter:
+  - Remove more unnecessary translation rules (#2889)
+  - Implement summary type (#2998)
+- `awsxray` exporter: Remove translation to HTTP status from OC status (#2978)
+- `awsprometheusremotewrite` exporter: Close HTTP body after RoundTrip (#2955)
+- `splunkhec` exporter: Add ResourceAttributes to Splunk Event (#2843)
+
 ## v0.23.0
 
 # 🎉 OpenTelemetry Collector Contrib v0.23.0 (Beta) 🎉

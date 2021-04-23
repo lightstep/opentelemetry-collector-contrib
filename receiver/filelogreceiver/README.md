@@ -15,7 +15,7 @@ Supported pipeline types: logs
 | `include`              | required         | A list of file glob patterns that match the file paths to be read                                                  |
 | `exclude`              | []               | A list of file glob patterns to exclude from reading                                                               |
 | `start_at`             | `end`            | At startup, where to start reading logs from the file. Options are `beginning` or `end`                            |
-| `write_to`             | $record          | The record [field](https://github.com/open-telemetry/opentelemetry-log-collection/blob/main/docs/types/field.md) written to when creating a new log entry                                  |
+| `write_to`             | $body            | The body [field](https://github.com/open-telemetry/opentelemetry-log-collection/blob/main/docs/types/field.md) written to when creating a new log entry                                  |
 | `multiline`            |                  | A `multiline` configuration block. See below for more details                                                      |
 | `encoding`             | `nop`            | The encoding of the file being read. See the list of supported encodings below for available options               |
 | `include_file_name`    | `true`           | Whether to add the file name as the label `file_name`                                                              |
@@ -24,8 +24,8 @@ Supported pipeline types: logs
 | `fingerprint_size`     | `1kb`            | The number of bytes with which to identify a file. The first bytes in the file are used as the fingerprint. Decreasing this value at any point will cause existing fingerprints to forgotten, meaning that all files will be read from the beginning (one time) |
 | `max_log_size`         | `1MiB`           | The maximum size of a log entry to read before failing. Protects against reading large amounts of data into memory |
 | `max_concurrent_files` | 1024             | The maximum number of log files from which logs will be read concurrently. If the number of files matched in the `include` pattern exceeds this number, then files will be processed in batches. One batch will be processed per `poll_interval` |
-| `labels`               | {}               | A map of `key: value` labels to add to the entry's labels                                                          |
-| `resource`             | {}               | A map of `key: value` labels to add to the entry's resource                                                        |
+| `attributes`           | {}               | A map of `key: value` pairs to add to the entry's attributes                                                       |
+| `resource`             | {}               | A map of `key: value` pairs to add to the entry's resource                                                    |
 | `operators`            | []               | An array of [operators](https://github.com/open-telemetry/opentelemetry-log-collection/blob/main/docs/operators/README.md#what-operators-are-available). See below for more details |
 
 Note that _by default_, no logs will be read from a file that is not actively being written to because `start_at` defaults to `end`.

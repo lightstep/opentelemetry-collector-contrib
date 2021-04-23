@@ -49,18 +49,15 @@ func NewFactory() component.ProcessorFactory {
 	return processorhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		processorhelper.WithTraces(createTraceProcessor),
+		processorhelper.WithTraces(createTracesProcessor),
 		processorhelper.WithLogs(createLogsProcessor))
 }
 
 // createDefaultConfig creates the default configuration for the processor.
 func createDefaultConfig() config.Processor {
 	return &Config{
-		ProcessorSettings: config.ProcessorSettings{
-			TypeVal: typeStr,
-			NameVal: string(typeStr),
-		},
-		GroupByKeys: []string{},
+		ProcessorSettings: config.NewProcessorSettings(typeStr),
+		GroupByKeys:       []string{},
 	}
 }
 
@@ -87,8 +84,8 @@ func createGroupByAttrsProcessor(logger *zap.Logger, attributes []string) (*grou
 	return &groupByAttrsProcessor{logger: logger, groupByKeys: nonEmptyAttributes}, nil
 }
 
-// createTraceProcessor creates a trace processor based on this config.
-func createTraceProcessor(
+// createTracesProcessor creates a trace processor based on this config.
+func createTracesProcessor(
 	_ context.Context,
 	params component.ProcessorCreateParams,
 	cfg config.Processor,
@@ -100,7 +97,7 @@ func createTraceProcessor(
 		return nil, err
 	}
 
-	return processorhelper.NewTraceProcessor(
+	return processorhelper.NewTracesProcessor(
 		cfg,
 		nextConsumer,
 		gap,

@@ -49,18 +49,15 @@ func NewFactory() component.ProcessorFactory {
 	return processorhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		processorhelper.WithTraces(createTraceProcessor))
+		processorhelper.WithTraces(createTracesProcessor))
 }
 
 // createDefaultConfig creates the default configuration for the processor.
 func createDefaultConfig() config.Processor {
 	return &Config{
-		ProcessorSettings: config.ProcessorSettings{
-			TypeVal: typeStr,
-			NameVal: string(typeStr),
-		},
-		NumTraces:    defaultNumTraces,
-		WaitDuration: defaultWaitDuration,
+		ProcessorSettings: config.NewProcessorSettings(typeStr),
+		NumTraces:         defaultNumTraces,
+		WaitDuration:      defaultWaitDuration,
 
 		// not supported for now
 		DiscardOrphans: defaultDiscardOrphans,
@@ -68,8 +65,8 @@ func createDefaultConfig() config.Processor {
 	}
 }
 
-// createTraceProcessor creates a trace processor based on this config.
-func createTraceProcessor(
+// createTracesProcessor creates a trace processor based on this config.
+func createTracesProcessor(
 	_ context.Context,
 	params component.ProcessorCreateParams,
 	cfg config.Processor,

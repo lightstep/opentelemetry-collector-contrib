@@ -52,8 +52,8 @@ func pdataSpanToOTSpanData(
 	sc := apitrace.SpanContextConfig{}
 	sc.TraceID = span.TraceID().Bytes()
 	sc.SpanID = span.SpanID().Bytes()
-	startTime := time.Unix(0, int64(span.StartTime()))
-	endTime := time.Unix(0, int64(span.EndTime()))
+	startTime := time.Unix(0, int64(span.StartTimestamp()))
+	endTime := time.Unix(0, int64(span.EndTimestamp()))
 	// TODO: Decide if ignoring the error is fine.
 	r, _ := sdkresource.New(
 		context.Background(),
@@ -120,7 +120,7 @@ func pdataStatusCodeToOTCode(c pdata.StatusCode) codes.Code {
 func pdataAttributesToOTAttributes(attrs pdata.AttributeMap, resource pdata.Resource) []attribute.KeyValue {
 	otAttrs := make([]attribute.KeyValue, 0, attrs.Len())
 	appendAttrs := func(m pdata.AttributeMap) {
-		m.ForEach(func(k string, v pdata.AttributeValue) {
+		m.Range(func(k string, v pdata.AttributeValue) bool {
 			switch v.Type() {
 			case pdata.AttributeValueSTRING:
 				otAttrs = append(otAttrs, attribute.String(k, v.StringVal()))
@@ -130,10 +130,8 @@ func pdataAttributesToOTAttributes(attrs pdata.AttributeMap, resource pdata.Reso
 				otAttrs = append(otAttrs, attribute.Int64(k, v.IntVal()))
 			case pdata.AttributeValueDOUBLE:
 				otAttrs = append(otAttrs, attribute.Float64(k, v.DoubleVal()))
-			// pdata Array, and Map cannot be converted to value.Value
-			default:
-				return
 			}
+			return true
 		})
 	}
 	appendAttrs(resource.Attributes())

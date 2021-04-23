@@ -38,18 +38,14 @@ func NewFactory() component.ExporterFactory {
 		typeStr,
 		createDefaultConfig,
 		exporterhelper.WithMetrics(createMetricsExporter),
-		exporterhelper.WithTraces(createTraceExporter),
+		exporterhelper.WithTraces(createTracesExporter),
 	)
 }
 
 // createDefaultConfig creates the default exporter configuration
 func createDefaultConfig() config.Exporter {
 	return &ddconfig.Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		API: ddconfig.APIConfig{
 			Key:  "$DD_API_KEY", // Must be set if using API
 			Site: "$DD_SITE",    // If not provided, set during config sanitization
@@ -136,8 +132,8 @@ func createMetricsExporter(
 	)
 }
 
-// createTraceExporter creates a trace exporter based on this config.
-func createTraceExporter(
+// createTracesExporter creates a trace exporter based on this config.
+func createTracesExporter(
 	ctx context.Context,
 	params component.ExporterCreateParams,
 	c config.Exporter,
@@ -167,10 +163,10 @@ func createTraceExporter(
 			return nil
 		}
 	} else {
-		pushTracesFn = newTraceExporter(ctx, params, cfg).pushTraceData
+		pushTracesFn = newTracesExporter(ctx, params, cfg).pushTraceData
 	}
 
-	return exporterhelper.NewTraceExporter(
+	return exporterhelper.NewTracesExporter(
 		cfg,
 		params.Logger,
 		pushTracesFn,

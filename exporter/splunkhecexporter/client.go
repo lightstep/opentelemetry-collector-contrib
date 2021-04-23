@@ -60,7 +60,7 @@ func (c *client) pushMetricsData(
 		return nil
 	}
 
-	body, compressed, err := encodeBody(&c.zippers, splunkDataPoints, c.config.DisableCompression)
+	body, compressed, err := encodeBodyEvents(&c.zippers, splunkDataPoints, c.config.DisableCompression)
 	if err != nil {
 		return consumererror.Permanent(err)
 	}
@@ -132,8 +132,6 @@ func (c *client) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
 	gzipBuffer := bytes.NewBuffer(make([]byte, 0, c.config.MaxContentLengthLogs))
 	gzipWriter.Reset(gzipBuffer)
 
-	defer gzipWriter.Close()
-
 	// Callback when each batch is to be sent.
 	send := func(ctx context.Context, buf *bytes.Buffer) (err error) {
 		shouldCompress := buf.Len() >= minCompressionLen && !c.config.DisableCompression
@@ -146,7 +144,7 @@ func (c *client) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
 				return fmt.Errorf("failed copying buffer to gzip writer: %v", err)
 			}
 
-			if err = gzipWriter.Flush(); err != nil {
+			if err = gzipWriter.Close(); err != nil {
 				return fmt.Errorf("failed flushing compressed data to gzip writer: %v", err)
 			}
 
@@ -185,6 +183,7 @@ func (c *client) pushLogDataInBatches(ctx context.Context, ld pdata.Logs, send f
 
 	var rls = ld.ResourceLogs()
 	for i := 0; i < rls.Len(); i++ {
+		res := rls.At(i).Resource()
 		ills := rls.At(i).InstrumentationLibraryLogs()
 		for j := 0; j < ills.Len(); j++ {
 			logs := ills.At(j).Logs()
@@ -194,7 +193,7 @@ func (c *client) pushLogDataInBatches(ctx context.Context, ld pdata.Logs, send f
 				}
 
 				// Parsing log record to Splunk event.
-				event := mapLogRecordToSplunkEvent(logs.At(k), c.config, c.logger)
+				event := mapLogRecordToSplunkEvent(res, logs.At(k), c.config, c.logger)
 				// JSON encoding event and writing to buffer.
 				if err = encoder.Encode(event); err != nil {
 					permanentErrors = append(permanentErrors, consumererror.Permanent(fmt.Errorf("dropped log event: %v, error: %v", event, err)))
@@ -292,7 +291,7 @@ func subLogs(ld *pdata.Logs, from *logIndex) *pdata.Logs {
 	resourcesSub := subset.ResourceLogs()
 
 	for i := from.resource; i < resources.Len(); i++ {
-		resourcesSub.Append(pdata.NewResourceLogs())
+		resourcesSub.AppendEmpty()
 		resources.At(i).Resource().CopyTo(resourcesSub.At(i - from.resource).Resource())
 
 		libraries := resources.At(i).InstrumentationLibraryLogs()
@@ -303,7 +302,7 @@ func subLogs(ld *pdata.Logs, from *logIndex) *pdata.Logs {
 			j = from.library
 		}
 		for jSub := 0; j < libraries.Len(); j++ {
-			librariesSub.Append(pdata.NewInstrumentationLibraryLogs())
+			librariesSub.AppendEmpty()
 			libraries.At(j).InstrumentationLibrary().CopyTo(librariesSub.At(jSub).InstrumentationLibrary())
 
 			logs := libraries.At(j).Logs()
@@ -314,8 +313,9 @@ func subLogs(ld *pdata.Logs, from *logIndex) *pdata.Logs {
 			if i == from.resource && j == from.library {
 				k = from.record
 			}
+
 			for kSub := 0; k < logs.Len(); k++ {
-				logsSub.Append(pdata.NewLogRecord())
+				logsSub.AppendEmpty()
 				logs.At(k).CopyTo(logsSub.At(kSub))
 				kSub++
 			}
@@ -329,19 +329,6 @@ func encodeBodyEvents(zippers *sync.Pool, evs []*splunk.Event, disableCompressio
 	buf := new(bytes.Buffer)
 	encoder := json.NewEncoder(buf)
 	for _, e := range evs {
-		err := encoder.Encode(e)
-		if err != nil {
-			return nil, false, err
-		}
-		buf.WriteString("\r\n\r\n")
-	}
-	return getReader(zippers, buf, disableCompression)
-}
-
-func encodeBody(zippers *sync.Pool, dps []*splunk.Event, disableCompression bool) (bodyReader io.Reader, compressed bool, err error) {
-	buf := new(bytes.Buffer)
-	encoder := json.NewEncoder(buf)
-	for _, e := range dps {
 		err := encoder.Encode(e)
 		if err != nil {
 			return nil, false, err
@@ -370,7 +357,7 @@ func getReader(zippers *sync.Pool, b *bytes.Buffer, disableCompression bool) (io
 	return b, false, err
 }
 
-func (c *client) stop(context context.Context) error {
+func (c *client) stop(context.Context) error {
 	c.wg.Wait()
 	return nil
 }

@@ -26,7 +26,7 @@ import (
 	"go.opentelemetry.io/collector/consumer/pdata"
 	semconventions "go.opentelemetry.io/collector/translator/conventions"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/awsxray"
+	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
 
 const (
@@ -108,7 +108,7 @@ func TestServerSpanWithInternalServerError(t *testing.T) {
 	attributes[semconventions.AttributeEnduserID] = enduser
 	resource := constructDefaultResource()
 	span := constructServerSpan(parentSpanID, spanName, pdata.StatusCodeError, errorMessage, attributes)
-	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTime())
+	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTimestamp())
 	timeEvents.CopyTo(span.Events())
 
 	segment, _ := MakeSegment(span, resource, nil, false)
@@ -137,8 +137,8 @@ func TestSpanNoParentId(t *testing.T) {
 	span.SetSpanID(newSegmentID())
 	span.SetParentSpanID(pdata.InvalidSpanID())
 	span.SetKind(pdata.SpanKindPRODUCER)
-	span.SetStartTime(pdata.TimestampFromTime(time.Now()))
-	span.SetEndTime(pdata.TimestampFromTime(time.Now().Add(10)))
+	span.SetStartTimestamp(pdata.TimestampFromTime(time.Now()))
+	span.SetEndTimestamp(pdata.TimestampFromTime(time.Now().Add(10)))
 	resource := pdata.NewResource()
 	segment, _ := MakeSegment(span, resource, nil, false)
 
@@ -152,8 +152,8 @@ func TestSpanWithNoStatus(t *testing.T) {
 	span.SetSpanID(newSegmentID())
 	span.SetParentSpanID(newSegmentID())
 	span.SetKind(pdata.SpanKindSERVER)
-	span.SetStartTime(pdata.TimestampFromTime(time.Now()))
-	span.SetEndTime(pdata.TimestampFromTime(time.Now().Add(10)))
+	span.SetStartTimestamp(pdata.TimestampFromTime(time.Now()))
+	span.SetEndTimestamp(pdata.TimestampFromTime(time.Now().Add(10)))
 
 	resource := pdata.NewResource()
 	segment, _ := MakeSegment(span, resource, nil, false)
@@ -272,7 +272,7 @@ func TestSpanWithInvalidTraceId(t *testing.T) {
 	attributes[semconventions.AttributeHTTPTarget] = spanName
 	resource := constructDefaultResource()
 	span := constructClientSpan(pdata.InvalidSpanID(), spanName, pdata.StatusCodeUnset, "OK", attributes)
-	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTime())
+	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTimestamp())
 	timeEvents.CopyTo(span.Events())
 	traceID := span.TraceID().Bytes()
 	traceID[0] = 0x11
@@ -322,7 +322,7 @@ func TestServerSpanWithNilAttributes(t *testing.T) {
 	attributes := make(map[string]interface{})
 	resource := constructDefaultResource()
 	span := constructServerSpan(parentSpanID, spanName, pdata.StatusCodeError, "OK", attributes)
-	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTime())
+	timeEvents := constructTimedEventsWithSentMessageEvent(span.StartTimestamp())
 	timeEvents.CopyTo(span.Events())
 	pdata.NewAttributeMap().CopyTo(span.Attributes())
 
@@ -635,8 +635,8 @@ func constructClientSpan(parentSpanID pdata.SpanID, name string, code pdata.Stat
 	span.SetParentSpanID(parentSpanID)
 	span.SetName(name)
 	span.SetKind(pdata.SpanKindCLIENT)
-	span.SetStartTime(pdata.TimestampFromTime(startTime))
-	span.SetEndTime(pdata.TimestampFromTime(endTime))
+	span.SetStartTimestamp(pdata.TimestampFromTime(startTime))
+	span.SetEndTimestamp(pdata.TimestampFromTime(endTime))
 
 	status := pdata.NewSpanStatus()
 	status.SetCode(code)
@@ -662,8 +662,8 @@ func constructServerSpan(parentSpanID pdata.SpanID, name string, code pdata.Stat
 	span.SetParentSpanID(parentSpanID)
 	span.SetName(name)
 	span.SetKind(pdata.SpanKindSERVER)
-	span.SetStartTime(pdata.TimestampFromTime(startTime))
-	span.SetEndTime(pdata.TimestampFromTime(endTime))
+	span.SetStartTimestamp(pdata.TimestampFromTime(startTime))
+	span.SetEndTimestamp(pdata.TimestampFromTime(endTime))
 
 	status := pdata.NewSpanStatus()
 	status.SetCode(code)
@@ -711,19 +711,14 @@ func constructDefaultResource() pdata.Resource {
 
 	resourceMapVal := pdata.NewAttributeValueMap()
 	resourceMap := resourceMapVal.MapVal()
-	resourceMap.InitEmptyWithCapacity(2)
 	resourceMap.InsertInt("key1", 1)
 	resourceMap.InsertString("key2", "value")
 	attrs.Insert(resourceMapKey, resourceMapVal)
 
 	resourceArrayVal := pdata.NewAttributeValueArray()
 	resourceArray := resourceArrayVal.ArrayVal()
-	val1 := pdata.NewAttributeValueNull()
-	val1.SetStringVal("foo")
-	val2 := pdata.NewAttributeValueNull()
-	val2.SetStringVal("bar")
-	resourceArray.Append(val1)
-	resourceArray.Append(val2)
+	resourceArray.AppendEmpty().SetStringVal("foo")
+	resourceArray.AppendEmpty().SetStringVal("bar")
 	attrs.Insert(resourceArrayKey, resourceArrayVal)
 	attrs.CopyTo(resource.Attributes())
 	return resource
@@ -742,8 +737,7 @@ func constructTimedEventsWithReceivedMessageEvent(tm pdata.Timestamp) pdata.Span
 	event.SetDroppedAttributesCount(0)
 
 	events := pdata.NewSpanEventSlice()
-	events.Resize(1)
-	event.CopyTo(events.At(0))
+	event.CopyTo(events.AppendEmpty())
 	return events
 }
 
@@ -759,8 +753,7 @@ func constructTimedEventsWithSentMessageEvent(tm pdata.Timestamp) pdata.SpanEven
 	event.SetDroppedAttributesCount(0)
 
 	events := pdata.NewSpanEventSlice()
-	events.Resize(1)
-	event.CopyTo(events.At(0))
+	event.CopyTo(events.AppendEmpty())
 	return events
 }
 

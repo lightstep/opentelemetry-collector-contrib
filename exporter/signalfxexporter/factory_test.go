@@ -61,7 +61,7 @@ func TestCreateTracesExporter(t *testing.T) {
 	c.AccessToken = "access_token"
 	c.Realm = "us0"
 
-	_, err := createTraceExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
+	_, err := createTracesExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
 	assert.NoError(t, err)
 }
 
@@ -70,7 +70,7 @@ func TestCreateTracesExporterNoAccessToken(t *testing.T) {
 	c := cfg.(*Config)
 	c.Realm = "us0"
 
-	_, err := createTraceExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
+	_, err := createTracesExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
 	assert.EqualError(t, err, "access_token is required")
 }
 
@@ -112,12 +112,9 @@ func TestCreateInstanceViaFactory(t *testing.T) {
 
 func TestCreateMetricsExporter_CustomConfig(t *testing.T) {
 	config := &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		AccessToken: "testToken",
-		Realm:       "us1",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		AccessToken:      "testToken",
+		Realm:            "us1",
 		Headers: map[string]string{
 			"added-entry": "added value",
 			"dot.test":    "test",
@@ -139,24 +136,18 @@ func TestFactory_CreateMetricsExporterFails(t *testing.T) {
 		{
 			name: "negative_duration",
 			config: &Config{
-				ExporterSettings: config.ExporterSettings{
-					TypeVal: config.Type(typeStr),
-					NameVal: typeStr,
-				},
-				AccessToken:     "testToken",
-				Realm:           "lab",
-				TimeoutSettings: exporterhelper.TimeoutSettings{Timeout: -2 * time.Second},
+				ExporterSettings: config.NewExporterSettings(typeStr),
+				AccessToken:      "testToken",
+				Realm:            "lab",
+				TimeoutSettings:  exporterhelper.TimeoutSettings{Timeout: -2 * time.Second},
 			},
 			errorMessage: "failed to process \"signalfx\" config: cannot have a negative \"timeout\"",
 		},
 		{
 			name: "empty_realm_and_urls",
 			config: &Config{
-				ExporterSettings: config.ExporterSettings{
-					TypeVal: config.Type(typeStr),
-					NameVal: typeStr,
-				},
-				AccessToken: "testToken",
+				ExporterSettings: config.NewExporterSettings(typeStr),
+				AccessToken:      "testToken",
 			},
 			errorMessage: "failed to process \"signalfx\" config: requires a non-empty \"realm\"," +
 				" or \"ingest_url\" and \"api_url\" should be explicitly set",
@@ -164,12 +155,9 @@ func TestFactory_CreateMetricsExporterFails(t *testing.T) {
 		{
 			name: "empty_realm_and_api_url",
 			config: &Config{
-				ExporterSettings: config.ExporterSettings{
-					TypeVal: config.Type(typeStr),
-					NameVal: typeStr,
-				},
-				AccessToken: "testToken",
-				IngestURL:   "http://localhost:123",
+				ExporterSettings: config.NewExporterSettings(typeStr),
+				AccessToken:      "testToken",
+				IngestURL:        "http://localhost:123",
 			},
 			errorMessage: "failed to process \"signalfx\" config: requires a non-empty \"realm\"," +
 				" or \"ingest_url\" and \"api_url\" should be explicitly set",
@@ -267,12 +255,9 @@ func TestDefaultTranslationRules(t *testing.T) {
 
 func TestCreateMetricsExporterWithDefaultExcludeMetrics(t *testing.T) {
 	config := &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		AccessToken: "testToken",
-		Realm:       "us1",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		AccessToken:      "testToken",
+		Realm:            "us1",
 	}
 
 	te, err := createMetricsExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, config)
@@ -280,17 +265,14 @@ func TestCreateMetricsExporterWithDefaultExcludeMetrics(t *testing.T) {
 	require.NotNil(t, te)
 
 	// Validate that default excludes are always loaded.
-	assert.Equal(t, 10, len(config.ExcludeMetrics))
+	assert.Equal(t, 11, len(config.ExcludeMetrics))
 }
 
 func TestCreateMetricsExporterWithExcludeMetrics(t *testing.T) {
 	config := &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		AccessToken: "testToken",
-		Realm:       "us1",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		AccessToken:      "testToken",
+		Realm:            "us1",
 		ExcludeMetrics: []dpfilters.MetricFilter{
 			{
 				MetricNames: []string{"metric1"},
@@ -303,18 +285,15 @@ func TestCreateMetricsExporterWithExcludeMetrics(t *testing.T) {
 	require.NotNil(t, te)
 
 	// Validate that default excludes are always loaded.
-	assert.Equal(t, 11, len(config.ExcludeMetrics))
+	assert.Equal(t, 12, len(config.ExcludeMetrics))
 }
 
 func TestCreateMetricsExporterWithEmptyExcludeMetrics(t *testing.T) {
 	config := &Config{
-		ExporterSettings: config.ExporterSettings{
-			TypeVal: config.Type(typeStr),
-			NameVal: typeStr,
-		},
-		AccessToken:    "testToken",
-		Realm:          "us1",
-		ExcludeMetrics: []dpfilters.MetricFilter{},
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		AccessToken:      "testToken",
+		Realm:            "us1",
+		ExcludeMetrics:   []dpfilters.MetricFilter{},
 	}
 
 	te, err := createMetricsExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, config)
@@ -1061,17 +1040,16 @@ func TestDefaultExcludes_not_translated(t *testing.T) {
 
 func getResourceMetrics(metrics []map[string]string) pdata.ResourceMetrics {
 	rms := pdata.NewResourceMetrics()
-	rms.InstrumentationLibraryMetrics().Resize(1)
-	ilms := rms.InstrumentationLibraryMetrics().At(0)
+	ilms := rms.InstrumentationLibraryMetrics().AppendEmpty()
 	ilms.Metrics().Resize(len(metrics))
 
 	for i, mp := range metrics {
 		m := ilms.Metrics().At(i)
 		// Set data type to some arbitrary since it does not matter for this test.
 		m.SetDataType(pdata.MetricDataTypeIntSum)
-		m.IntSum().DataPoints().Resize(1)
-		m.IntSum().DataPoints().At(0).SetValue(0)
-		labelsMap := m.IntSum().DataPoints().At(0).LabelsMap()
+		dp := m.IntSum().DataPoints().AppendEmpty()
+		dp.SetValue(0)
+		labelsMap := dp.LabelsMap()
 		for k, v := range mp {
 			if v == "" {
 				m.SetName(k)

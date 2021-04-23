@@ -153,17 +153,22 @@ func TestKeyspaceMetrics(t *testing.T) {
 func TestNewPDM(t *testing.T) {
 	serverStartTime := pdata.TimestampFromTime(time.Unix(900, 0))
 	tb := testTimeBundle()
-	pdm := newIntMetric(&redisMetric{pdType: pdata.MetricDataTypeIntGauge}, pdata.NewIntDataPoint(), tb)
-	assert.Equal(t, pdata.Timestamp(0), pdm.IntGauge().DataPoints().At(0).StartTime())
 
-	pdm = newIntMetric(&redisMetric{pdType: pdata.MetricDataTypeIntSum}, pdata.NewIntDataPoint(), tb)
-	assert.Equal(t, serverStartTime, pdm.IntSum().DataPoints().At(0).StartTime())
+	pdm := pdata.NewMetric()
+	initIntMetric(&redisMetric{pdType: pdata.MetricDataTypeIntGauge}, 0, tb, pdm)
+	assert.Equal(t, pdata.Timestamp(0), pdm.IntGauge().DataPoints().At(0).StartTimestamp())
 
-	pdm = newDoubleMetric(&redisMetric{pdType: pdata.MetricDataTypeDoubleGauge}, pdata.NewDoubleDataPoint(), tb)
-	assert.Equal(t, pdata.Timestamp(0), pdm.DoubleGauge().DataPoints().At(0).StartTime())
+	pdm = pdata.NewMetric()
+	initIntMetric(&redisMetric{pdType: pdata.MetricDataTypeIntSum}, 0, tb, pdm)
+	assert.Equal(t, serverStartTime, pdm.IntSum().DataPoints().At(0).StartTimestamp())
 
-	pdm = newDoubleMetric(&redisMetric{pdType: pdata.MetricDataTypeDoubleSum}, pdata.NewDoubleDataPoint(), tb)
-	assert.Equal(t, serverStartTime, pdm.DoubleSum().DataPoints().At(0).StartTime())
+	pdm = pdata.NewMetric()
+	initDoubleMetric(&redisMetric{pdType: pdata.MetricDataTypeDoubleGauge}, 0, tb, pdm)
+	assert.Equal(t, pdata.Timestamp(0), pdm.DoubleGauge().DataPoints().At(0).StartTimestamp())
+
+	pdm = pdata.NewMetric()
+	initDoubleMetric(&redisMetric{pdType: pdata.MetricDataTypeDoubleSum}, 0, tb, pdm)
+	assert.Equal(t, serverStartTime, pdm.DoubleSum().DataPoints().At(0).StartTimestamp())
 }
 
 func testFetchMetrics(redisMetrics []*redisMetric) (pdata.MetricSlice, []error, error) {

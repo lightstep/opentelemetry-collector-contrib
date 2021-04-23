@@ -227,29 +227,29 @@ func (p *processorImp) ConsumeTraces(ctx context.Context, traces pdata.Traces) e
 // buildMetrics collects the computed raw metrics data, builds the metrics object and
 // writes the raw metrics data into the metrics object.
 func (p *processorImp) buildMetrics() *pdata.Metrics {
-	ilm := pdata.NewInstrumentationLibraryMetrics()
+	m := pdata.NewMetrics()
+	ilm := m.ResourceMetrics().AppendEmpty().InstrumentationLibraryMetrics().AppendEmpty()
 	ilm.InstrumentationLibrary().SetName("spanmetricsprocessor")
 
 	p.lock.RLock()
-	p.collectCallMetrics(&ilm)
-	p.collectLatencyMetrics(&ilm)
+	p.collectCallMetrics(ilm)
+	p.collectLatencyMetrics(ilm)
 	p.lock.RUnlock()
 
-	rm := pdata.NewResourceMetrics()
-	ilms := rm.InstrumentationLibraryMetrics()
-	ilms.Append(ilm)
-
-	m := pdata.NewMetrics()
-	m.ResourceMetrics().Append(rm)
 	return &m
 }
 
 // collectLatencyMetrics collects the raw latency metrics, writing the data
 // into the given instrumentation library metrics.
-func (p *processorImp) collectLatencyMetrics(ilm *pdata.InstrumentationLibraryMetrics) {
+func (p *processorImp) collectLatencyMetrics(ilm pdata.InstrumentationLibraryMetrics) {
 	for key := range p.latencyCount {
-		dpLatency := pdata.NewIntHistogramDataPoint()
-		dpLatency.SetStartTime(pdata.TimestampFromTime(p.startTime))
+		mLatency := ilm.Metrics().AppendEmpty()
+		mLatency.SetDataType(pdata.MetricDataTypeIntHistogram)
+		mLatency.SetName("latency")
+		mLatency.IntHistogram().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+
+		dpLatency := mLatency.IntHistogram().DataPoints().AppendEmpty()
+		dpLatency.SetStartTimestamp(pdata.TimestampFromTime(p.startTime))
 		dpLatency.SetTimestamp(pdata.TimestampFromTime(time.Now()))
 		dpLatency.SetExplicitBounds(p.latencyBounds)
 		dpLatency.SetBucketCounts(p.latencyBucketCounts[key])
@@ -257,34 +257,25 @@ func (p *processorImp) collectLatencyMetrics(ilm *pdata.InstrumentationLibraryMe
 		dpLatency.SetSum(int64(p.latencySum[key]))
 
 		dpLatency.LabelsMap().InitFromMap(p.metricKeyToDimensions[key])
-
-		mLatency := pdata.NewMetric()
-		mLatency.SetDataType(pdata.MetricDataTypeIntHistogram)
-		mLatency.SetName("latency")
-		mLatency.IntHistogram().DataPoints().Append(dpLatency)
-		mLatency.IntHistogram().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
-		ilm.Metrics().Append(mLatency)
 	}
 }
 
 // collectCallMetrics collects the raw call count metrics, writing the data
 // into the given instrumentation library metrics.
-func (p *processorImp) collectCallMetrics(ilm *pdata.InstrumentationLibraryMetrics) {
+func (p *processorImp) collectCallMetrics(ilm pdata.InstrumentationLibraryMetrics) {
 	for key := range p.callSum {
-		dpCalls := pdata.NewIntDataPoint()
-		dpCalls.SetStartTime(pdata.TimestampFromTime(p.startTime))
+		mCalls := ilm.Metrics().AppendEmpty()
+		mCalls.SetDataType(pdata.MetricDataTypeIntSum)
+		mCalls.SetName("calls_total")
+		mCalls.IntSum().SetIsMonotonic(true)
+		mCalls.IntSum().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+
+		dpCalls := mCalls.IntSum().DataPoints().AppendEmpty()
+		dpCalls.SetStartTimestamp(pdata.TimestampFromTime(p.startTime))
 		dpCalls.SetTimestamp(pdata.TimestampFromTime(time.Now()))
 		dpCalls.SetValue(p.callSum[key])
 
 		dpCalls.LabelsMap().InitFromMap(p.metricKeyToDimensions[key])
-
-		mCalls := pdata.NewMetric()
-		mCalls.SetDataType(pdata.MetricDataTypeIntSum)
-		mCalls.SetName("calls_total")
-		mCalls.IntSum().SetIsMonotonic(true)
-		mCalls.IntSum().DataPoints().Append(dpCalls)
-		mCalls.IntSum().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
-		ilm.Metrics().Append(mCalls)
 	}
 }
 
@@ -319,7 +310,7 @@ func (p *processorImp) aggregateMetricsForServiceSpans(rspans pdata.ResourceSpan
 }
 
 func (p *processorImp) aggregateMetricsForSpan(serviceName string, span pdata.Span) {
-	latencyInMilliseconds := float64(span.EndTime()-span.StartTime()) / float64(time.Millisecond.Nanoseconds())
+	latencyInMilliseconds := float64(span.EndTimestamp()-span.StartTimestamp()) / float64(time.Millisecond.Nanoseconds())
 
 	// Binary search to find the latencyInMilliseconds bucket index.
 	index := sort.SearchFloat64s(p.latencyBounds, latencyInMilliseconds)

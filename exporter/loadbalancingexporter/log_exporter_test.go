@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenthelper"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
@@ -46,7 +47,9 @@ func TestNewLogsExporter(t *testing.T) {
 		},
 		{
 			"empty",
-			&Config{},
+			&Config{
+				ExporterSettings: config.NewExporterSettings(typeStr),
+			},
 			errNoResolver,
 		},
 	} {
@@ -76,12 +79,12 @@ func TestLogExporterStart(t *testing.T) {
 			"ok",
 			func() *logExporterImp {
 				// prepare
-				config := simpleConfig()
+				cfg := simpleConfig()
 				params := component.ExporterCreateParams{
 					Logger: zap.NewNop(),
 				}
 
-				p, _ := newLogsExporter(params, config)
+				p, _ := newLogsExporter(params, cfg)
 				return p
 			}(),
 			nil,
@@ -90,13 +93,13 @@ func TestLogExporterStart(t *testing.T) {
 			"error",
 			func() *logExporterImp {
 				// prepare
-				config := simpleConfig()
+				cfg := simpleConfig()
 				params := component.ExporterCreateParams{
 					Logger: zap.NewNop(),
 				}
 
-				lb, _ := newLoadBalancer(params, config, nil)
-				p, _ := newLogsExporter(params, config)
+				lb, _ := newLoadBalancer(params, cfg, nil)
+				p, _ := newLogsExporter(params, cfg)
 
 				lb.res = &mockResolver{
 					onStart: func(context.Context) error {
@@ -307,8 +310,7 @@ func TestNoLogsInBatch(t *testing.T) {
 			"no instrumentation library logs",
 			func() pdata.Logs {
 				batch := pdata.NewLogs()
-				rl := pdata.NewResourceLogs()
-				batch.ResourceLogs().Append(rl)
+				batch.ResourceLogs().AppendEmpty()
 				return batch
 			}(),
 		},
@@ -316,10 +318,7 @@ func TestNoLogsInBatch(t *testing.T) {
 			"no logs",
 			func() pdata.Logs {
 				batch := pdata.NewLogs()
-				rl := pdata.NewResourceLogs()
-				ill := pdata.NewInstrumentationLibraryLogs()
-				rl.InstrumentationLibraryLogs().Append(ill)
-				batch.ResourceLogs().Append(rl)
+				batch.ResourceLogs().AppendEmpty().InstrumentationLibraryLogs().AppendEmpty()
 				return batch
 			}(),
 		},
@@ -407,7 +406,8 @@ func TestRollingUpdatesWhenConsumeLogs(t *testing.T) {
 	}
 	res.resInterval = 10 * time.Millisecond
 
-	config := &Config{
+	cfg := &Config{
+		ExporterSettings: config.NewExporterSettings(typeStr),
 		Resolver: ResolverSettings{
 			DNS: &DNSResolver{Hostname: "service-1", Port: ""},
 		},
@@ -416,11 +416,11 @@ func TestRollingUpdatesWhenConsumeLogs(t *testing.T) {
 	componentFactory := func(ctx context.Context, endpoint string) (component.Exporter, error) {
 		return newNopMockLogsExporter(), nil
 	}
-	lb, err := newLoadBalancer(params, config, componentFactory)
+	lb, err := newLoadBalancer(params, cfg, componentFactory)
 	require.NotNil(t, lb)
 	require.NoError(t, err)
 
-	p, err := newLogsExporter(params, config)
+	p, err := newLogsExporter(params, cfg)
 	require.NotNil(t, p)
 	require.NoError(t, err)
 
@@ -501,23 +501,18 @@ func simpleLogs() pdata.Logs {
 
 func simpleLogWithID(id pdata.TraceID) pdata.Logs {
 	logs := pdata.NewLogs()
-	logs.ResourceLogs().Resize(1)
-	rl := logs.ResourceLogs().At(0)
-	rl.InstrumentationLibraryLogs().Resize(1)
-	ill := rl.InstrumentationLibraryLogs().At(0)
-	ill.Logs().Resize(1)
-	ill.Logs().At(0).SetTraceID(id)
+	rl := logs.ResourceLogs().AppendEmpty()
+	ill := rl.InstrumentationLibraryLogs().AppendEmpty()
+	ill.Logs().AppendEmpty().SetTraceID(id)
 
 	return logs
 }
 
 func simpleLogWithoutID() pdata.Logs {
 	logs := pdata.NewLogs()
-	logs.ResourceLogs().Resize(1)
-	rl := logs.ResourceLogs().At(0)
-	rl.InstrumentationLibraryLogs().Resize(1)
-	ill := rl.InstrumentationLibraryLogs().At(0)
-	ill.Logs().Resize(1)
+	rl := logs.ResourceLogs().AppendEmpty()
+	ill := rl.InstrumentationLibraryLogs().AppendEmpty()
+	ill.Logs().AppendEmpty()
 
 	return logs
 }
