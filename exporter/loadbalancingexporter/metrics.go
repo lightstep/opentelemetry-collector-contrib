@@ -18,6 +18,12 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"go.opentelemetry.io/collector/obsreport"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/unit"
+	"go.opentelemetry.io/otel/sdk/metric/aggregation"
+	otelview "go.opentelemetry.io/otel/sdk/metric/view"
 )
 
 var (
@@ -25,10 +31,44 @@ var (
 	mNumBackends    = stats.Int64("loadbalancer_num_backends", "Current number of backends in use", stats.UnitDimensionless)
 	mBackendLatency = stats.Int64("loadbalancer_backend_latency", "Response latency in ms for the backends", stats.UnitMilliseconds)
 
+	meter = global.Meter("loadbalancingexporter")
+
+	omBackendLatency, _ = meter.SyncInt64().Histogram(
+		"loadbalancer_backend_latency",
+		instrument.WithDescription("Response latency in ms for the backends"),
+		instrument.WithUnit(unit.Milliseconds),
+	)
+
 	endpointTagKey      = tag.MustNewKey("endpoint")
 	successTrueMutator  = tag.Upsert(tag.MustNewKey("success"), "true")
 	successFalseMutator = tag.Upsert(tag.MustNewKey("success"), "false")
 )
+
+func init() {
+	lbView, err := otelview.New(
+		otelview.MatchInstrumentName("loadbalancer_backend_latency"),
+		otelview.WithRename("loadbalancer_backend_latency_specific_buckets"),
+		otelview.WithSetAggregation(aggregation.ExplicitBucketHistogram{
+			Boundaries: []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 1000},
+		}),
+	)
+	if err != nil {
+		return
+	}
+
+	lbView2, err := otelview.New(
+		otelview.MatchInstrumentName("loadbalancer_backend_latency"),
+		otelview.WithRename("loadbalancer_backend_latency_different_buckets"),
+		otelview.WithSetAggregation(aggregation.ExplicitBucketHistogram{
+			Boundaries: []float64{0, 3, 5, 7, 9, 11, 1500},
+		}),
+	)
+	if err != nil {
+		return
+	}
+
+	obsreport.AddViews(lbView, lbView2)
+}
 
 // MetricViews return the metrics views according to given telemetry level.
 func MetricViews() []*view.View {

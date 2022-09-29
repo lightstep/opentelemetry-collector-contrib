@@ -27,7 +27,9 @@ import (
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/exporter/otlpexporter"
+	"go.opentelemetry.io/collector/obsreport"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/multierr"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchpersignal"
@@ -121,16 +123,20 @@ func (e *traceExporterImp) consumeTrace(ctx context.Context, td ptrace.Traces) e
 		err = te.ConsumeTraces(ctx, td)
 		duration := time.Since(start)
 
-		if err == nil {
-			_ = stats.RecordWithTags(
-				ctx,
-				[]tag.Mutator{tag.Upsert(endpointTagKey, endpoint), successTrueMutator},
-				mBackendLatency.M(duration.Milliseconds()))
+		if obsreport.InstrumentWithOtel() {
+			omBackendLatency.Record(ctx, duration.Milliseconds(), attribute.String(endpointTagKey.Name(), endpoint), attribute.Bool("success", err == nil))
 		} else {
-			_ = stats.RecordWithTags(
-				ctx,
-				[]tag.Mutator{tag.Upsert(endpointTagKey, endpoint), successFalseMutator},
-				mBackendLatency.M(duration.Milliseconds()))
+			if err == nil {
+				_ = stats.RecordWithTags(
+					ctx,
+					[]tag.Mutator{tag.Upsert(endpointTagKey, endpoint), successTrueMutator},
+					mBackendLatency.M(duration.Milliseconds()))
+			} else {
+				_ = stats.RecordWithTags(
+					ctx,
+					[]tag.Mutator{tag.Upsert(endpointTagKey, endpoint), successFalseMutator},
+					mBackendLatency.M(duration.Milliseconds()))
+			}
 		}
 	}
 	return err
