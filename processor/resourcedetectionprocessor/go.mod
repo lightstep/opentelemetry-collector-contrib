@@ -3,9 +3,9 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/processor/resou
 go 1.18
 
 require (
-	cloud.google.com/go/compute v1.10.0
+	cloud.google.com/go/compute v1.9.0
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v0.32.8
-	github.com/aws/aws-sdk-go v1.44.106
+	github.com/aws/aws-sdk-go v1.44.107
 	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/hashicorp/consul/api v1.15.2
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.61.0
@@ -84,7 +84,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
-	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
+	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2 // indirect
 	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
