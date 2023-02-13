@@ -5,11 +5,11 @@ go 1.18
 require (
 	github.com/DataDog/agent-payload/v5 v5.0.29
 	github.com/DataDog/datadog-agent/pkg/otlp/model v0.40.0-rc.2
-	github.com/DataDog/datadog-agent/pkg/quantile v0.40.0-rc.2
+	github.com/DataDog/datadog-agent/pkg/quantile v0.43.0-rc.5
 	github.com/DataDog/datadog-agent/pkg/trace v0.40.0-rc.2
 	github.com/DataDog/datadog-api-client-go/v2 v2.2.0
 	github.com/DataDog/gohai v0.0.0-20220718130825-1776f9beb9cc
-	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v0.32.8
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.11.1
 	github.com/aws/aws-sdk-go v1.44.106
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.61.0
@@ -19,10 +19,10 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry v0.61.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor v0.61.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.61.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.61.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.0.0-00010101000000-000000000000
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.61.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector v0.61.0
 	go.opentelemetry.io/collector/pdata v0.61.0
 	go.opentelemetry.io/collector/semconv v0.61.0
@@ -123,7 +123,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.8 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/theupdateframework/go-tuf v0.3.0 // indirect
 	github.com/tinylib/msgp v1.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
