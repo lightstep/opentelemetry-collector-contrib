@@ -11,9 +11,9 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/testcontainers/testcontainers-go v0.19.0
 	go.opentelemetry.io/collector/component v0.75.0
-	go.opentelemetry.io/collector/confmap v0.75.0
+	go.opentelemetry.io/collector/confmap v0.77.0
 	go.opentelemetry.io/collector/consumer v0.75.0
-	go.opentelemetry.io/collector/featuregate v0.75.0
+	go.opentelemetry.io/collector/featuregate v0.77.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rc9
 	go.opentelemetry.io/collector/receiver v0.75.0
 	go.opentelemetry.io/collector/semconv v0.75.0
@@ -33,7 +33,6 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
