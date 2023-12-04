@@ -3,14 +3,14 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/processor/servi
 go 1.19
 
 require (
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/collector v0.75.0
 	go.opentelemetry.io/collector/component v0.75.0
 	go.opentelemetry.io/collector/consumer v0.75.0
 	go.opentelemetry.io/collector/exporter v0.75.0
 	go.opentelemetry.io/collector/exporter/otlpexporter v0.75.0
-	go.opentelemetry.io/collector/featuregate v0.75.0
+	go.opentelemetry.io/collector/featuregate v1.0.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rc9
 	go.opentelemetry.io/collector/semconv v0.75.0
 	go.uber.org/zap v1.24.0
@@ -34,6 +34,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.4 // indirect
@@ -54,7 +55,6 @@ require (
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
-	github.com/rogpeppe/go-internal v1.6.2 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.4 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
